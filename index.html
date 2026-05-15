@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>台北捷運探索 2026</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet"/>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Noto Sans TC',sans-serif;background:#1C1C1C;height:100vh;overflow:hidden;display:flex;flex-direction:column}
+header{background:#1C1C1C;height:46px;padding:0 18px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.logo{color:#F8F7F5;font-size:16px;font-weight:700;display:flex;align-items:center;gap:8px}
+.logo em{color:#F5C842;font-style:normal}
+.hint{color:#555;font-size:11px}
+/* 官方地圖容器 */
+.map-wrap{flex:1;overflow:auto;background:#e8e4e0;display:flex;align-items:flex-start;justify-content:center;padding:8px}
+#map-container{position:relative;width:900px;height:900px;flex-shrink:0}
+#map-img{width:900px;height:900px;display:block;user-select:none;-webkit-user-drag:none}
+/* 站點熱區 */
+.stn{position:absolute;width:22px;height:22px;border-radius:50%;cursor:pointer;
+  transform:translate(-50%,-50%);background:transparent;border:2px solid transparent;
+  z-index:5;transition:background .1s,border-color .1s,box-shadow .1s}
+.stn:hover{background:rgba(255,230,0,.22);border-color:rgba(255,200,0,.8)}
+.stn.active{background:rgba(255,220,0,.28);border-color:rgba(255,160,0,.9);
+  box-shadow:0 0 10px rgba(255,200,0,.55)}
+@keyframes stnPing{
+  0%{box-shadow:0 0 0 0 rgba(255,200,0,.75)}
+  100%{box-shadow:0 0 0 20px rgba(255,200,0,0)}
+}
+/* SVG 列車：83×18px，transform-origin = 車身中央 (41px 9px) */
+#train{position:absolute;left:0;top:0;overflow:visible;
+  pointer-events:none;z-index:10;transform-origin:41px 9px;
+  filter:drop-shadow(0 2px 5px rgba(0,0,0,.6))}
+/* 三鶯線 2026 banner */
+#lb-banner{background:#182535;border-top:1px solid #253a52;padding:3px 14px;
+  flex-shrink:0;display:flex;align-items:center;gap:6px;overflow-x:auto;white-space:nowrap}
+.lb-title{color:#00BFFF;font-size:11px;font-weight:700;flex-shrink:0}
+.lb-stn{background:#0e1e2e;border:1px solid rgba(0,191,255,.4);color:#7dd6f0;
+  border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;flex-shrink:0}
+.lb-stn:hover{background:#1a3a55;color:#fff}
+/* 右側資訊面板 */
+#panel{position:fixed;top:46px;right:-375px;width:365px;height:calc(100vh - 46px);
+  background:#fff;border-left:1px solid #ddd;display:flex;flex-direction:column;
+  transition:right .3s cubic-bezier(.4,0,.2,1);z-index:300;box-shadow:-4px 0 18px rgba(0,0,0,.15)}
+#panel.open{right:0}
+.ph{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  height:100%;gap:10px;color:#ccc;font-size:13px;text-align:center;padding:24px}
+.p-head{padding:16px 18px 12px;border-bottom:1px solid #eee;flex-shrink:0;position:relative}
+.cls{position:absolute;top:13px;right:13px;width:26px;height:26px;border:none;
+  background:#f0f0f0;border-radius:50%;cursor:pointer;font-size:14px;line-height:26px;text-align:center}
+.cls:hover{background:#e0e0e0}
+.badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:10px;font-weight:700;color:#fff;margin-bottom:6px}
+.pn{font-size:22px;font-weight:700;line-height:1.2}
+.pe{font-size:11px;color:#999;margin-top:2px}
+.tags{display:flex;flex-wrap:wrap;gap:5px;padding:10px 18px;border-bottom:1px solid #eee;flex-shrink:0}
+.tag{background:#FDF0E4;color:#C27A3A;border-radius:999px;padding:2px 9px;font-size:10px;font-weight:700}
+.scr{flex:1;overflow-y:auto}
+.sec{padding:12px 18px;border-bottom:1px solid #f5f5f5}
+.st{font-size:10px;font-weight:700;color:#aaa;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px}
+.intro{font-size:13px;line-height:1.85;color:#222}
+.hl{display:flex;gap:9px;padding:7px 0;border-bottom:1px solid #fafafa}
+.hl:last-child{border:none}
+.hi{width:27px;height:27px;border-radius:7px;background:#FDF0E4;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0}
+.hn{font-size:12px;font-weight:700}.hd{font-size:11px;color:#999;margin-top:1px;line-height:1.5}
+.ai{padding:12px 14px;border-top:1px solid #eee;background:#F8F7F5;flex-shrink:0}
+.at{font-size:10px;font-weight:700;color:#aaa;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px}
+.qrow{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}
+.qb{background:#fff;border:1px solid #e0e0e0;border-radius:5px;padding:4px 9px;font-size:11px;
+  font-family:'Noto Sans TC',sans-serif;cursor:pointer;transition:all .12s}
+.qb:hover{border-color:#C27A3A;color:#C27A3A;background:#FDF0E4}
+.ar{display:flex;gap:5px}
+.ai-in{flex:1;border:1px solid #e0e0e0;border-radius:5px;padding:7px 10px;font-size:12px;
+  font-family:'Noto Sans TC',sans-serif;outline:none}
+.ai-in:focus{border-color:#C27A3A}
+.ai-go{background:#C27A3A;color:#fff;border:none;border-radius:5px;padding:7px 12px;font-size:12px;cursor:pointer;font-weight:700}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo"><em>🍋</em> 台北捷運探索 <span style="color:#F5C842;font-size:10px;background:#333;padding:1px 5px;border-radius:3px;margin-left:4px">2026</span></div>
+  <span class="hint">點選站點 · 🍋 列車帶你去</span>
+</header>
+
+<div class="map-wrap">
+  <div id="map-container">
+    <!-- 官方標準路線圖 (2023, 台北大眾捷運公司) -->
+    <img id="map-img"
+      src="https://assets.piliapp.com/s3pxy/mrt_taiwan/taipei/20230214_zh.png"
+      alt="台北捷運路線圖" draggable="false"/>
+    <!-- 🍋 檸檬列車 SVG
+         viewBox: 車身 x=-83(尾)~0(鼻頭)，y=-9~9
+         定位中心 = 車身中央 (約 x=-42)，對齊站點座標 -->
+    <svg id="train" viewBox="-83 -9 83 18" width="83" height="18">
+      <defs>
+        <linearGradient id="lg" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#FFE800"/>
+          <stop offset="100%" stop-color="#D49000"/>
+        </linearGradient>
+        <linearGradient id="lgr" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#F8D400"/>
+          <stop offset="100%" stop-color="#C08000"/>
+        </linearGradient>
+        <!-- 前車剪裁路徑 -->
+        <clipPath id="cp1">
+          <path d="M -5,-8 L -30,-8 L -30,8 L -5,8 Q 0,5 0,0 Q 0,-5 -5,-8 Z"/>
+        </clipPath>
+      </defs>
+
+      <!-- ── 車廂 1：前車（檸檬尖頭輪廓）── -->
+      <path d="M -5,-8 L -30,-8 L -30,8 L -5,8 Q 0,5 0,0 Q 0,-5 -5,-8 Z"
+            fill="url(#lg)" stroke="#B08000" stroke-width="1.3"/>
+      <!-- 頂部綠色帶（模擬檸檬皮）-->
+      <rect x="-30" y="-8" width="30" height="4.5" fill="#6DB830" opacity=".55" clip-path="url(#cp1)"/>
+      <!-- 車窗 -->
+      <rect x="-27" y="-5" width="8" height="6" rx="1.5" fill="#1255A0" opacity=".9"/>
+      <rect x="-17" y="-5" width="8" height="6" rx="1.5" fill="#1255A0" opacity=".9"/>
+
+      <!-- ── 🍋 檸檬切面車頭燈（主特色）── -->
+      <circle cx="0" cy="0" r="6.5" fill="#FFFDE0" stroke="#B08000" stroke-width="1.2"/>
+      <!-- 六瓣放射線（柑橘切面） -->
+      <line x1="0" y1="-6.5" x2="0" y2="6.5"   stroke="#CCA000" stroke-width="0.65"/>
+      <line x1="0" y1="-6.5" x2="0" y2="6.5"   stroke="#CCA000" stroke-width="0.65" transform="rotate(60,0,0)"/>
+      <line x1="0" y1="-6.5" x2="0" y2="6.5"   stroke="#CCA000" stroke-width="0.65" transform="rotate(-60,0,0)"/>
+      <!-- 中心核 -->
+      <circle cx="0" cy="0" r="2.2" fill="#FFD700" stroke="#C49000" stroke-width="0.6"/>
+
+      <!-- 連接器 1 -->
+      <rect x="-34" y="-2.2" width="4" height="4.4" rx="1.2" fill="#B0B0B0"/>
+
+      <!-- ── 車廂 2：中車 ── -->
+      <rect x="-53" y="-8" width="19" height="16" rx="2.5"
+            fill="url(#lg)" stroke="#B08000" stroke-width="1.3"/>
+      <rect x="-53" y="-8" width="19" height="4.5" rx="0" fill="#6DB830" opacity=".5"/>
+      <rect x="-51" y="-5" width="8" height="6" rx="1.5" fill="#1255A0" opacity=".9"/>
+      <rect x="-41" y="-5" width="8" height="6" rx="1.5" fill="#1255A0" opacity=".9"/>
+
+      <!-- 連接器 2 -->
+      <rect x="-57" y="-2.2" width="4" height="4.4" rx="1.2" fill="#B0B0B0"/>
+
+      <!-- ── 車廂 3：後車（圓頭 = 檸檬蒂端）── -->
+      <path d="M -61,-8 L -76,-8 Q -83,-8 -83,0 Q -83,8 -76,8 L -61,8 Z"
+            fill="url(#lgr)" stroke="#A07000" stroke-width="1.3"/>
+      <rect x="-78" y="-8" width="17" height="4.5" rx="0" fill="#6DB830" opacity=".4"/>
+      <rect x="-73" y="-5" width="8" height="6" rx="1.5" fill="#1255A0" opacity=".9"/>
+      <rect x="-63" y="-5" width="8" height="6" rx="1.5" fill="#1255A0" opacity=".9"/>
+
+      <!-- ── 🍋 蒂頭（尾端，檸檬最有特色的部分）── -->
+      <circle cx="-83" cy="0" r="3" fill="#FFE000" stroke="#8AB020" stroke-width="1.1"/>
+      <path d="M -83,-3 C -87,-6 -84,-10 -79,-7" stroke="#4CAF50" stroke-width="2.2"
+            fill="none" stroke-linecap="round"/>
+      <path d="M -83,3  C -87,6  -84,10 -79,7"  stroke="#66BB40" stroke-width="1.6"
+            fill="none" stroke-linecap="round"/>
+    </svg>
+    <!-- 站點熱區由 JS 動態產生 -->
+  </div>
+</div>
+
+<!-- 三鶯線 / 信義延伸 2026 新站（不在 2023 官方圖上）-->
+<div id="lb-banner">
+  <span class="lb-title">🚇 2026 新通車</span>
+  <div class="lb-stn" onclick="S('R01')">廣慈／奉天宮</div>
+  <div class="lb-stn" onclick="S('LB06')">三峽</div>
+  <div class="lb-stn" onclick="S('LB09')">鶯歌老街</div>
+  <div class="lb-stn" onclick="S('LB12')">鶯桃福德</div>
+  <div class="lb-stn" onclick="S('LB07')">臺北大學</div>
+  <div class="lb-stn" onclick="S('LB08')">鶯歌車站</div>
+</div>
+
+<!-- 右側面板 -->
+<div id="panel">
+  <div id="ph" class="ph">
+    <div style="font-size:44px">🍋</div>
+    <div>點地圖上的站點</div>
+    <div style="font-size:11px;color:#ddd;margin-top:4px">檸檬列車帶你去，告訴你那站有什麼！</div>
+  </div>
+  <div id="pDet" style="display:none;flex-direction:column;height:100%">
+    <div class="p-head">
+      <button class="cls" onclick="closeP()">✕</button>
+      <div class="badge" id="pBadge"></div>
+      <div class="pn" id="pName"></div>
+      <div class="pe" id="pEn"></div>
+    </div>
+    <div class="tags" id="pTags"></div>
+    <div class="scr">
+      <div class="sec">
+        <div class="st">站點介紹</div>
+        <div class="intro" id="pIntro"></div>
+      </div>
+      <div class="sec">
+        <div class="st">附近亮點</div>
+        <div id="pHL"></div>
+      </div>
+    </div>
+    <div class="ai">
+      <div class="at">AI 搜尋</div>
+      <div class="qrow">
+        <button class="qb" onclick="qa('美食')">🍜 美食</button>
+        <button class="qb" onclick="qa('景點')">📍 景點</button>
+        <button class="qb" onclick="qa('近期活動')">🎉 近期活動</button>
+        <button class="qb" onclick="qa('親子景點')">👶 親子景點</button>
+        <button class="qb" onclick="qa('咖啡廳')">☕ 咖啡廳</button>
+      </div>
+      <div class="ar">
+        <input class="ai-in" id="aiIn" placeholder="幫我找附近的…"/>
+        <button class="ai-go" onclick="sendAI()">搜尋</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── 座標系統：piliapp 官方地圖 900×900 [left, top] ──
+const P={
+  // 板南線 BL（藍）
+  BL01:[122,851],BL02:[122,809],BL03:[122,767],BL04:[122,725],BL05:[122,683],
+  BL06:[122,641],BL07:[122,599],BL08:[145,561],BL09:[175,532],BL10:[205,503],
+  BL11:[248,488],BL12:[293,488],BL13:[338,488],BL14:[383,488],BL15:[450,488],
+  BL16:[502,488],BL17:[547,488],BL18:[592,488],BL19:[637,488],BL20:[682,488],
+  BL21:[727,488],BL22:[772,488],BL23:[817,488],
+  // 淡水信義線 R（紅）
+  R28:[38,68],R27:[76,68],R26:[114,68],R25:[152,68],R24:[190,68],R23:[228,68],
+  R22:[266,68],R22A:[308,68],
+  R21:[293,95],R20:[293,128],R19:[293,161],R18:[293,194],R17:[293,227],
+  R16:[293,260],R15:[293,293],R14:[293,326],R13:[293,359],R12:[293,397],
+  R11:[293,435],R10:[293,488],R09:[293,525],
+  R08:[309,563],R07:[358,563],R06:[403,563],R05:[450,563],
+  R04:[520,563],R03:[590,563],R02:[660,563],
+  // 松山新店線 G（綠）
+  G19:[650,435],G18:[590,435],G17:[530,435],G16:[383,435],
+  G15:[338,488],G14:[293,488],G13:[248,447],G12:[248,488],G11:[265,532],
+  G10:[309,563],G09:[340,594],G08:[366,620],G07:[392,646],G06:[410,674],
+  G05:[417,707],G04:[417,744],G03:[417,781],G03A:[390,807],G02:[417,818],G01:[417,855],
+  // 中和新蘆線 O（橘）
+  O01:[298,789],O02:[298,743],O03:[298,695],O04:[298,647],
+  O05:[340,594],O06:[358,563],O07:[383,488],O08:[383,435],
+  O09:[383,397],O10:[358,359],O11:[293,359],O12:[258,359],
+  O13:[220,383],O14:[196,406],O15:[172,429],O16:[148,452],
+  O17:[124,475],O18:[97,501],O19:[70,527],O20:[43,553],O21:[27,588],
+  O50:[220,334],O51:[188,302],O52:[156,270],O53:[124,238],O54:[92,206],
+  // 文湖線 BR（棕）
+  BR01:[673,814],BR02:[644,785],BR03:[615,756],BR04:[586,727],BR05:[557,698],
+  BR06:[528,669],BR07:[499,640],BR08:[470,611],
+  BR09:[470,549],BR10:[450,488],
+  BR11:[470,435],BR12:[493,393],BR13:[516,351],BR14:[539,309],
+  BR15:[577,293],BR16:[622,293],BR17:[667,293],BR18:[712,293],BR19:[757,293],
+  BR20:[799,311],BR21:[817,353],BR22:[817,398],BR23:[817,443],BR24:[817,488],
+  // 環狀線 Y（黃）
+  Y08:[388,744],Y09:[359,744],Y10:[330,744],Y11:[296,732],Y12:[262,722],
+  Y13:[233,693],Y14:[204,664],Y15:[175,635],Y16:[148,599],
+  Y17:[125,541],Y18:[124,484],Y19:[124,427],Y20:[124,379]
+};
+
+// 線路顏色與名稱
+const LC={R:'#E3002C',BL:'#0070C0',G:'#008659',O:'#F5A623',BR:'#C48C00',LB:'#00BFFF',Y:'#F8CD00'};
+const LN={R:'淡水信義線',BL:'板南線',G:'松山新店線',O:'中和新蘆線',BR:'文湖線',LB:'三鶯線（新北捷運）',Y:'環狀線'};
+
+// 站點資料庫
+const DB={
+  R28:{n:'淡水',e:'Tamsui',l:'R',t:['老街','夕陽','古蹟'],i:'台北最有風情的終點站！淡水老街、紅毛城、夕陽、漁人碼頭，週末必來。',h:[{i:'🏘️',n:'淡水老街',d:'阿給、鐵蛋、魚丸，必吃在地小吃'},{i:'🌅',n:'淡水夕陽',d:'漁人碼頭浪漫夕照，全台最美之一'},{i:'🏰',n:'紅毛城',d:'荷蘭時代古蹟，免費入園'}]},
+  R22:{n:'北投',e:'Beitou',l:'R',t:['溫泉','轉乘新北投'],i:'世界級溫泉鄉的起點，搭新北投支線一站即達溫泉區。',h:[{i:'♨️',n:'北投溫泉',d:'免費公共浴池+各等級溫泉旅館'},{i:'📚',n:'北投圖書館',d:'全台最美圖書館之一'}]},
+  R22A:{n:'新北投',e:'Xinbeitou',l:'R',t:['溫泉','博物館','地熱'],i:'台灣最著名的溫泉區，地熱谷冒著白煙。',h:[{i:'🏛️',n:'北投溫泉博物館',d:'日治時代浴場改建，免費入場'},{i:'💨',n:'地熱谷',d:'煙霧瀰漫的翠綠溫泉池'}]},
+  R16:{n:'士林',e:'Shilin',l:'R',t:['夜市','故宮'],i:'士林是台北北區的生活重心，故宮博物院搭公車即達。',h:[{i:'🏺',n:'國立故宮博物院',d:'世界四大博物館之一'},{i:'🌙',n:'士林夜市',d:'全台最大夜市，炸雞排必吃'}]},
+  R10:{n:'台北車站',e:'Taipei Main Station',l:'R',t:['交通樞紐','高鐵','機場快線'],i:'台灣最大交通樞紐，4條捷運線、高鐵、台鐵、機場快線交會。',h:[{i:'🚄',n:'台灣高鐵',d:'到高雄最快90分鐘'},{i:'✈️',n:'機場快線A1站',d:'直達桃園機場35分鐘'}]},
+  R08:{n:'中正紀念堂',e:'Chiang Kai-Shek Memorial Hall',l:'R',t:['歷史','廣場'],i:'台北最宏偉的廣場，國家兩廳院就在隔壁。',h:[{i:'🏛️',n:'中正紀念堂',d:'整點衛兵交接儀式'},{i:'🎭',n:'國家兩廳院',d:'頂級表演藝術場地'}]},
+  R07:{n:'東門',e:'Dongmen',l:'R',t:['永康街','文青','美食'],i:'通往永康街的入口，鼎泰豐總店就在附近。',h:[{i:'🥟',n:'鼎泰豐本店',d:'世界級小籠包，必吃排隊名店'},{i:'🛍️',n:'永康街',d:'小店、咖啡、特色餐廳一路逛'}]},
+  R06:{n:'大安森林公園',e:"Da'an Forest Park",l:'R',t:['公園','親子','野餐'],i:'台北市中心的都市綠洲，26公頃城市森林。',h:[{i:'🌳',n:'大安森林公園',d:'台北最大都市公園'},{i:'🎵',n:'露天音樂台',d:'假日常有免費演出'}]},
+  R03:{n:'台北101/世貿',e:'Taipei 101',l:'R',t:['購物','地標','夜景'],i:'全台最知名地標站，信義商圈最精華的百貨聚集地。',h:[{i:'🏙️',n:'台北101觀景台',d:'89樓360度台北全景'},{i:'🛍️',n:'信義商圈',d:'新光三越、ATT、微風'}]},
+  R02:{n:'象山',e:'Xiangshan',l:'R',t:['健行','夜景'],i:'登上象山，台北101和整片城市盡收眼底。',h:[{i:'🌃',n:'六巨石步道',d:'台北101近景拍攝最佳地點'}]},
+  R01:{n:'廣慈／奉天宮',e:'Guangci/Fengtian Temple',l:'R',t:['2026新站'],i:'【2026新通車】信義線東延段終點，北捷史上最難工程。',h:[{i:'🆕',n:'2026年6月預計通車',d:'試運轉已於2026年5月啟動'},{i:'⛩️',n:'奉天宮',d:'信義區著名廟宇'}]},
+  BL10:{n:'龍山寺',e:'Longshan Temple',l:'BL',t:['廟宇','歷史','夜市'],i:'台北最重要的信仰中心，剝皮寮歷史街區和華西街夜市都在旁邊。',h:[{i:'⛩️',n:'龍山寺',d:'清代古廟，每日信眾絡繹不絕'},{i:'🏘️',n:'剝皮寮歷史街區',d:'保存完整的清代商業街，免費入場'}]},
+  BL11:{n:'西門',e:'Ximen',l:'BL',t:['青春','電影','潮流'],i:'台北最有能量的年輕人聚集地！西門紅樓是文創地標。',h:[{i:'🏮',n:'西門紅樓',d:'1908年磚紅建築，週末文創市集'},{i:'🎬',n:'電影街',d:'院線最密集'}]},
+  BL12:{n:'台北車站',e:'Taipei Main Station',l:'BL',t:['交通樞紐'],i:'台灣最大交通樞紐。',h:[{i:'🚄',n:'高鐵',d:'到高雄最快90分鐘'},{i:'✈️',n:'機場快線',d:'直達桃園機場35分鐘'}]},
+  BL07:{n:'板橋',e:'Banqiao',l:'BL',t:['高鐵','台鐵','新板'],i:'新北市政府所在地，高鐵、台鐵、捷運三鐵共構。',h:[{i:'🚄',n:'三鐵共構',d:'高鐵、台鐵、捷運一站搞定'}]},
+  BL15:{n:'忠孝復興',e:'Zhongxiao Fuxing',l:'BL',t:['百貨','購物'],i:'SOGO百貨門口站，忠孝東路商圈精華地帶。',h:[{i:'🏬',n:'SOGO百貨',d:'台北最知名日系百貨之一'}]},
+  BL23:{n:'南港展覽館',e:'Taipei Nangang Exhibition Center',l:'BL',t:['展覽','COMPUTEX'],i:'台灣最大展覽場地，每年COMPUTEX在此舉辦。',h:[{i:'🖥️',n:'COMPUTEX',d:'全球最重要科技展之一'}]},
+  G19:{n:'松山',e:'Songshan',l:'G',t:['文創','饒河夜市'],i:'松山文創園區就在站旁，日治菸廠改建。',h:[{i:'🏭',n:'松山文創園區',d:'展覽、市集密集'},{i:'🌙',n:'饒河街夜市',d:'在地夜市代表'}]},
+  G13:{n:'北門',e:'Beimen',l:'G',t:['歷史','鐵道'],i:'台灣鐵道博物館園區和清代北門古城牆在此。',h:[{i:'🚂',n:'臺灣鐵道博物館',d:'全台最大鐵道園區'}]},
+  G07:{n:'公館',e:'Gongguan',l:'G',t:['台大','夜市'],i:'台灣大學正門口站，公館商圈是最有學生氣息的地方。',h:[{i:'🎓',n:'台灣大學',d:'台灣最頂尖大學，校園開放免費參觀'}]},
+  G01:{n:'新店',e:'Xindian',l:'G',t:['碧潭','吊橋'],i:'碧潭是新店最著名景點，翠綠水色配上吊橋。',h:[{i:'🌊',n:'碧潭',d:'翠綠潭水+吊橋，拍照和划船聖地'}]},
+  O09:{n:'行天宮',e:'Xingtian Temple',l:'O',t:['廟宇','關公'],i:'全台香火最旺廟宇之一，祭祀關聖帝君。',h:[{i:'⛩️',n:'行天宮',d:'全台最旺財神廟'}]},
+  O21:{n:'迴龍',e:'Huilong',l:'O',t:['終點'],i:'橘線終點站，林口、龜山一帶居民進台北的重要門戶。',h:[]},
+  O54:{n:'蘆洲',e:'Luzhou',l:'O',t:['終點','夜市'],i:'蘆洲支線終點站。',h:[{i:'🌙',n:'蘆洲夜市',d:'在地夜市，道地小吃'}]},
+  O18:{n:'新莊',e:'Xinzhuang',l:'O',t:['廟街'],i:'新莊廟街是全台最有古意的廟宇聚落之一。',h:[{i:'⛩️',n:'新莊廟街',d:'多座百年廟宇連成一線'}]},
+  BR01:{n:'動物園',e:'Taipei Zoo',l:'BR',t:['動物園','親子','纜車'],i:'台北市立動物園全台最大，貓熊圓仔必看。',h:[{i:'🐼',n:'台北市立動物園',d:'全台最大動物園'},{i:'🚡',n:'貓空纜車',d:'俯瞰台北，到貓空喝茶'}]},
+  BR13:{n:'松山機場',e:'Songshan Airport',l:'BR',t:['機場'],i:'往日本羽田、香港最方便的機場。',h:[{i:'✈️',n:'台北松山機場',d:'到日本、香港最近的出發點'}]},
+  BR20:{n:'大湖公園',e:'Dahu Park',l:'BR',t:['湖泊','公園','親子'],i:'大湖公園是內湖最美的公園。',h:[{i:'🌊',n:'大湖公園',d:'內湖最美湖泊公園'}]},
+  LB06:{n:'三峽',e:'Sansia',l:'LB',t:['2026新站','老街','歷史'],i:'【2026新通車】三峽老街清代紅磚拱廊建築聞名，祖師廟木雕精美。',h:[{i:'🏘️',n:'三峽老街',d:'全台最完整老街之一'},{i:'⛩️',n:'三峽祖師廟',d:'木雕細緻精美，東方藝術殿堂'}]},
+  LB09:{n:'鶯歌老街',e:'Yingge Old Street',l:'LB',t:['2026新站','陶瓷','老街'],i:'【2026新通車】鶯歌陶瓷老街全台最著名的陶瓷聚落。',h:[{i:'🏺',n:'鶯歌陶瓷老街',d:'全台最大陶瓷聚落'},{i:'🎨',n:'陶藝DIY',d:'親子手拉坯體驗'}]},
+  LB12:{n:'鶯桃福德',e:'Yingtao Fude',l:'LB',t:['2026新站','終點'],i:'【2026新通車】三鶯線終點，未來預計延伸至桃園八德。',h:[{i:'🏁',n:'三鶯線終點',d:'未來預計延伸至桃園八德'}]},
+  LB07:{n:'臺北大學',e:'Univ. of Taipei',l:'LB',t:['2026新站','大學'],i:'【2026新通車】臺北大學三峽校區旁，學生族利多。',h:[]},
+  LB08:{n:'鶯歌車站',e:'Yingge Station',l:'LB',t:['2026新站','台鐵轉乘'],i:'【2026新通車】與台鐵鶯歌站共站，轉乘更方便。',h:[]}
+};
+
+const FB={R:'淡水信義線站點',BL:'板南線站點',G:'松山新店線站點',O:'中和新蘆線站點',BR:'文湖線站點',LB:'三鶯線站點（2026新通車）',Y:'環狀線站點'};
+
+// 全站中文名對照（panel 顯示備用）
+const SN={
+  BL01:'頂埔',BL02:'永寧',BL03:'土城',BL04:'海山',BL05:'亞東醫院',
+  BL06:'府中',BL07:'板橋',BL08:'新埔',BL09:'江子翠',BL10:'龍山寺',
+  BL11:'西門',BL12:'台北車站',BL13:'善導寺',BL14:'忠孝新生',BL15:'忠孝復興',
+  BL16:'忠孝敦化',BL17:'國父紀念館',BL18:'市政府',BL19:'永春',BL20:'後山埤',
+  BL21:'昆陽',BL22:'南港',BL23:'南港展覽館',
+  R01:'廣慈／奉天宮',R02:'象山',R03:'台北101/世貿',R04:'信義安和',
+  R05:'大安',R06:'大安森林公園',R07:'東門',R08:'中正紀念堂',R09:'台大醫院',
+  R10:'台北車站',R11:'中山',R12:'雙連',R13:'民權西路',R14:'圓山',
+  R15:'劍潭',R16:'士林',R17:'芝山',R18:'明德',R19:'石牌',R20:'唭哩岸',
+  R21:'奇岩',R22:'北投',R22A:'新北投',R23:'復興崗',R24:'忠義',
+  R25:'關渡',R26:'竹圍',R27:'紅樹林',R28:'淡水',
+  G01:'新店',G02:'新店區公所',G03:'七張',G03A:'小碧潭',G04:'大坪林',
+  G05:'景美',G06:'萬隆',G07:'公館',G08:'台電大樓',G09:'古亭',
+  G10:'中正紀念堂',G11:'小南門',G12:'西門',G13:'北門',G14:'台北車站',
+  G15:'善導寺',G16:'松江南京',G17:'行天宮',G18:'南京三民',G19:'松山',
+  O01:'南勢角',O02:'景安',O03:'永安市場',O04:'頂溪',O05:'古亭',
+  O06:'東門',O07:'忠孝新生',O08:'松江南京',O09:'行天宮',O10:'中山國小',
+  O11:'民權西路',O12:'大橋頭',O13:'台北橋',O14:'菜寮',O15:'三重',
+  O16:'先嗇宮',O17:'頭前庄',O18:'新莊',O19:'輔大',O20:'丹鳳',O21:'迴龍',
+  O50:'三重國小',O51:'三和國中',O52:'徐匯中學',O53:'三民高中',O54:'蘆洲',
+  BR01:'動物園',BR02:'木柵',BR03:'萬芳社區',BR04:'萬芳醫院',BR05:'辛亥',
+  BR06:'麟光',BR07:'六張犁',BR08:'科技大樓',BR09:'大安',BR10:'忠孝復興',
+  BR11:'南京復興',BR12:'中山國中',BR13:'松山機場',BR14:'大直',BR15:'劍南路',
+  BR16:'西湖',BR17:'港墘',BR18:'文德',BR19:'內湖',BR20:'大湖公園',
+  BR21:'葫洲',BR22:'東湖',BR23:'南港軟體園區',BR24:'南港展覽館',
+  Y08:'十四張',Y09:'秀朗橋',Y10:'景平',Y11:'中和',Y12:'中和',
+  Y13:'橋和',Y14:'中原',Y15:'板新',Y16:'板橋',Y17:'新埔',
+  Y18:'幸福',Y19:'幸福',Y20:'新北產業園區',
+  LB02:'媽祖田',LB03:'挖子',LB04:'橫溪',LB05:'龍埔',LB06:'三峽',
+  LB07:'臺北大學',LB08:'鶯歌車站',LB09:'鶯歌老街',LB10:'國華',LB12:'鶯桃福德'
+};
+
+// 交叉站別名（同一實體站，不同線路代號）
+const ALIAS={
+  BL12:'R10',R10:'BL12',       // 台北車站 BL↔R
+  BL11:'G12',G12:'BL11',       // 西門 BL↔G
+  BL14:'O07',O07:'BL14',       // 忠孝新生 BL↔O
+  BL15:'BR10',BR10:'BL15',     // 忠孝復興 BL↔BR
+  BL23:'BR24',BR24:'BL23',     // 南港展覽館 BL↔BR
+  G14:'R10',                    // 台北車站 G→R/BL
+  R11:'O11',O11:'R11',          // 民權西路↔中山 (O轉乘)
+  R07:'O06',O06:'R07',          // 東門 R↔O
+  R13:'O11',                    // 民權西路 R→O
+  G09:'O05',O05:'G09',          // 古亭 G↔O
+  G16:'O08',O08:'G16',          // 松江南京 G↔O
+  G10:'R08',R08:'G10',          // 中正紀念堂 G↔R
+  BL07:'Y16',Y16:'BL07',        // 板橋 BL↔Y
+  BL08:'Y17',Y17:'BL08'         // 新埔 BL↔Y
+};
+
+// 各線路站點順序（用於 BFS 建圖）
+const LINES={
+  BL:['BL01','BL02','BL03','BL04','BL05','BL06','BL07','BL08','BL09','BL10','BL11','BL12','BL13','BL14','BL15','BL16','BL17','BL18','BL19','BL20','BL21','BL22','BL23'],
+  R:['R28','R27','R26','R25','R24','R23','R22','R21','R20','R19','R18','R17','R16','R15','R14','R13','R12','R11','R10','R09','R08','R07','R06','R05','R04','R03','R02'],
+  Rb:['R22','R22A'],
+  G:['G19','G18','G17','G16','G15','G14','G13','G12','G11','G10','G09','G08','G07','G06','G05','G04','G03','G02','G01'],
+  Gb:['G03','G03A'],
+  O:['O01','O02','O03','O04','O05','O06','O07','O08','O09','O10','O11','O12','O13','O14','O15','O16','O17','O18','O19','O20','O21'],
+  Ob:['O15','O50','O51','O52','O53','O54'],
+  BR:['BR01','BR02','BR03','BR04','BR05','BR06','BR07','BR08','BR09','BR10','BR11','BR12','BR13','BR14','BR15','BR16','BR17','BR18','BR19','BR20','BR21','BR22','BR23','BR24'],
+  Y:['Y20','Y19','Y18','Y17','Y16','Y15','Y14','Y13','Y12','Y11','Y10','Y09','Y08']
+};
+
+// BFS 最短路徑
+function buildAdj(){
+  const a={};
+  const add=(x,y)=>{
+    [x,y].forEach(n=>{if(!a[n])a[n]=new Set();});
+    a[x].add(y);a[y].add(x);
+    const ax=ALIAS[x],ay=ALIAS[y];
+    if(ax){if(!a[ax])a[ax]=new Set();a[ax].add(y);a[y].add(ax);}
+    if(ay){if(!a[ay])a[ay]=new Set();a[x].add(ay);a[ay].add(x);}
+    if(ax&&ay){a[ax].add(ay);a[ay].add(ax);}
+  };
+  Object.values(LINES).forEach(l=>{for(let i=0;i<l.length-1;i++)add(l[i],l[i+1]);});
+  Object.entries(ALIAS).forEach(([x,y])=>{
+    [x,y].forEach(n=>{if(!a[n])a[n]=new Set();});
+    a[x].add(y);a[y].add(x);
+  });
+  return a;
+}
+const ADJ=buildAdj();
+function bfs(f,t){
+  const fn=ALIAS[f]||f,tn=ALIAS[t]||t;
+  if(fn===tn)return[fn];
+  const Q=[[fn,[fn]]],v=new Set([fn]);
+  while(Q.length){
+    const[n,p]=Q.shift();
+    for(const nb of(ADJ[n]||new Set())){
+      if(v.has(nb))continue;v.add(nb);
+      const np=[...p,nb];
+      if(nb===tn||nb===t)return np;
+      Q.push([nb,np]);
+    }
+  }
+  return[fn,tn];
+}
+
+// ── 🍋 列車狀態 ──
+let tx=293,ty=488,ta=0;
+let wps=[],wi=0,pending=null;
+let isIdle=true,idleTimer=null;
+const TOUR=['R28','R22A','R16','BL12','BL07','BL23','BR01','G01','G19','O54','O21','R02','Y16','BR20'];
+let ti=0;
+const SPD=1.5;
+
+function posC(){
+  // 車身中央 (元素內 41px,9px) 對齊站點座標 (tx,ty)
+  document.getElementById('train').style.transform=
+    `translate(${tx-41}px,${ty-9}px) rotate(${ta}deg)`;
+}
+
+function tick(){
+  if(!wps.length||wi>=wps.length){
+    if(pending){const id=pending;pending=null;ping();setTimeout(()=>openP(id),280);}
+    if(isIdle&&!idleTimer)idleTimer=setTimeout(nextIdle,3000+Math.random()*2000);
+    return;
+  }
+  const[wx,wy]=wps[wi];
+  const dx=wx-tx,dy=wy-ty,d=Math.hypot(dx,dy);
+  if(d<SPD+0.3){tx=wx;ty=wy;wi++;}
+  else{tx+=dx/d*SPD;ty+=dy/d*SPD;ta=Math.atan2(dy,dx)*180/Math.PI;}
+  posC();
+}
+
+function ping(){
+  const el=document.getElementById('s-'+(cur||''));
+  if(!el)return;
+  el.style.animation='none';
+  requestAnimationFrame(()=>{
+    el.style.animation='stnPing .65s ease-out';
+    setTimeout(()=>el.style.animation='',700);
+  });
+}
+
+function route(to){
+  let best=null,bd=Infinity;
+  for(const[id,[x,y]]of Object.entries(P)){
+    const d=Math.hypot(tx-x,ty-y);
+    if(d<bd){bd=d;best=id;}
+  }
+  const path=bfs(best,to);
+  wps=path.map(id=>{const pos=P[id]||P[ALIAS[id]];return pos||[tx,ty];});
+  wi=0;
+}
+
+function nextIdle(){
+  idleTimer=null;if(!isIdle)return;
+  ti=(ti+1)%TOUR.length;route(TOUR[ti]);
+  idleTimer=setTimeout(nextIdle,4000+Math.random()*3000);
+}
+
+// ── 站點互動 ──
+let cur=null;
+function S(id){
+  if(cur)document.getElementById('s-'+cur)?.classList.remove('active');
+  const disp=ALIAS[id]||id;cur=disp;
+  document.getElementById('s-'+disp)?.classList.add('active');
+  isIdle=false;if(idleTimer){clearTimeout(idleTimer);idleTimer=null;}
+  route(id);pending=id;
+}
+
+function openP(id){
+  const d=DB[id]||DB[ALIAS[id]];
+  const line=(d?.l)||id.replace(/\d.*/,'');
+  const name=d?.n||SN[id]||SN[ALIAS[id]]||id;
+  document.getElementById('ph').style.display='none';
+  document.getElementById('pDet').style.display='flex';
+  document.getElementById('pBadge').textContent=LN[line]||line;
+  document.getElementById('pBadge').style.background=LC[line]||'#888';
+  document.getElementById('pName').textContent=name;
+  document.getElementById('pEn').textContent=d?.e||'';
+  document.getElementById('pTags').innerHTML=(d?.t||[]).map(t=>`<span class="tag">${t}</span>`).join('');
+  document.getElementById('pIntro').textContent=d?.i||FB[line]||'站點資料整理中…';
+  document.getElementById('pHL').innerHTML=(d?.h||[]).length
+    ?d.h.map(h=>`<div class="hl"><div class="hi">${h.i}</div><div><div class="hn">${h.n}</div><div class="hd">${h.d}</div></div></div>`).join('')
+    :'<p style="font-size:12px;color:#ccc">AI 將為此站整理熱門景點…</p>';
+  document.getElementById('aiIn').placeholder='幫我找'+name+'附近的…';
+  document.getElementById('panel').classList.add('open');
+}
+
+function closeP(){
+  document.getElementById('panel').classList.remove('open');
+  if(cur){document.getElementById('s-'+cur)?.classList.remove('active');cur=null;}
+  isIdle=true;idleTimer=setTimeout(nextIdle,2000);
+}
+
+function qa(q){document.getElementById('aiIn').value=document.getElementById('pName').textContent+'附近的'+q;}
+function sendAI(){
+  const v=document.getElementById('aiIn').value.trim();
+  if(!v)return;
+  alert('🤖 Gemini AI 搜尋：「'+v+'」\n\n（串接 Gemini Search Grounding API 後即時顯示結果）');
+}
+
+// ── 動態產生站點熱區 ──
+(function buildHotspots(){
+  const mc=document.getElementById('map-container');
+  Object.entries(P).forEach(([id,[x,y]])=>{
+    const div=document.createElement('div');
+    div.className='stn';div.id='s-'+id;
+    div.style.left=x+'px';div.style.top=y+'px';
+    div.onclick=()=>S(id);
+    mc.appendChild(div);
+  });
+})();
+
+// ── 啟動動畫 ──
+posC();
+(function L(){tick();requestAnimationFrame(L);})();
+setInterval(tick,80);
+setTimeout(nextIdle,1500);
+</script>
+</body>
+</html>
