@@ -129,9 +129,13 @@ async def fetch_and_cache(sid: str):
     logger.info(f"Fetching: {sid} {name}")
     try:
         data = await asyncio.to_thread(fetch_station_data, sid, name)
+        # 只快取成功資料（_retry=True 表示 AI 全部失敗，不快取讓下次重試）
+        if data.get("_retry"):
+            logger.warning(f"Not caching {sid} due to _retry flag")
+            return
         cache = DATA_DIR / f"{sid}.json"
         cache.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-        logger.info(f"Cached: {sid}")
+        logger.info(f"✅ Cached: {sid}")
     except Exception as e:
         logger.error(f"Failed {sid}: {e}")
 

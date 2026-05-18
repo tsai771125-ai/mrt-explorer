@@ -51,40 +51,64 @@ def fetch_station_data(station_id: str, station_name: str) -> dict:
         logger.warning(f"No GEMINI_API_KEY for {station_id}")
         return {**base, "intro": f"{station_name}站：請設定 GEMINI_API_KEY"}
 
-    # ── 1. Gemini 2.0 Flash 生成 ───────────────────
-    try:
-        client = genai.Client(api_key=api_key)
-        prompt = PROMPT_TEMPLATE.format(name=station_name)
+    # ── 1. Gemini 生成（自動試多個模型名稱）──────────
+    # 不同 API key tier / 地區可用的模型不同，依序嘗試
+    MODELS = [
+        "gemini-2.0-flash",
+        "gemini-2.0-flash-001",
+        "gemini-1.5-flash",
+        "gemini-1.5-flash-001",
+        "gemini-1.5-flash-latest",
+    ]
+    client = genai.Client(api_key=api_key)
+    prompt = PROMPT_TEMPLATE.format(name=station_name)
+    ai_ok = False
 
-        response = client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                temperature=0.7,
-                response_mime_type="application/json",
-            ),
-        )
-        text = response.text.strip()
-        # 清除可能殘留的 code fence
-        text = re.sub(r"^```(?:json)?\s*\n?", "", text)
-        text = re.sub(r"\n?```$", "", text).strip()
+    for model_name in MODELS:
+        try:
+            response = client.models.generate_content(
+                model=model_name,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    temperature=0.7,
+                    response_mime_type="application/json",
+                ),
+            )
+            text = response.text.strip()
+            text = re.sub(r"^```(?:json)?\s*\n?", "", text)
+            text = re.sub(r"\n?```$", "", text).strip()
 
-        ai_data = json.loads(text)
-        base.update({
-            "intro": ai_data.get("intro", ""),
-            "tags": ai_data.get("tags", []),
-            "highlights": ai_data.get("highlights", []),
-            "kids_friendly": ai_data.get("kids_friendly", True),
-            "photo_query": ai_data.get("photo_query", station_name),
-        })
-        logger.info(f"✅ Gemini OK: {station_id} {station_name} — {len(ai_data.get('highlights',[]))} highlights")
+            ai_data = json.loads(text)
+            base.update({
+                "intro": ai_data.get("intro", ""),
+                "tags": ai_data.get("tags", []),
+                "highlights": ai_data.get("highlights", []),
+                "kids_friendly": ai_data.get("kids_friendly", True),
+                "photo_query": ai_data.get("photo_query", station_name),
+                "_model_used": model_name,
+            })
+            logger.info(f"✅ {model_name} OK: {station_id} {station_name} — {len(ai_data.get('highlights',[]))} highlights")
+            ai_ok = True
+            break  # 成功就停止嘗試
 
-    except json.JSONDecodeError as e:
-        logger.error(f"JSON parse error {station_id}: {e}")
-        base["intro"] = f"{station_name}站 — 資料解析失敗，請稍後重試"
-    except Exception as e:
-        logger.error(f"Gemini error {station_id}: {type(e).__name__}: {e}")
-        base["intro"] = f"{station_name}站 — AI 暫時無法使用"
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON parse error {station_id} with {model_name}: {e}")
+            base["intro"] = f"{station_name}站 — 資料解析失敗，請稍後重試"
+            ai_ok = True  # JSON 錯誤也算 partial OK，不再試其他模型
+            break
+        except Exception as e:
+            err = str(e)
+            logger.warning(f"⚠️ {model_name} failed for {station_id}: {type(e).__name__}: {err[:80]}")
+            if "NotFound" not in err and "not found" not in err.lower():
+                # 不是 NotFound 就不用繼續試別的模型
+                base["intro"] = f"{station_name}站 — AI 暫時無法使用（{type(e).__name__}）"
+                break
+            # NotFound → 繼續試下一個模型名稱
+
+    if not ai_ok and not base.get("intro"):
+        base["intro"] = f"{station_name}站 — 所有模型均無法使用，請稍後重試"
+        # 不設 status=error 以免快取永久失效
+        base["_retry"] = True
 
     # ── 2. Wikipedia 主照片 ─────────────────────────
     photo_query = base.get("photo_query") or station_name
