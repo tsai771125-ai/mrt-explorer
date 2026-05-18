@@ -582,26 +582,28 @@ function openP(id){
 
   // 呼叫後端 API 取得 AI + 照片資料
   const apiId = id.toUpperCase();
+  pollStationAPI(apiId, name, line, 0);
+}
+
+function pollStationAPI(apiId, name, line, attempt){
   fetch(`/api/station/${apiId}`)
     .then(r => r.json())
     .then(data => {
-      if(data.status === 'fetching'){
-        // 背景抓取中，2 秒後重試一次
-        setTimeout(()=>loadStationAPI(apiId, name, line), 3000);
+      if(data.status === 'fetching' && attempt < 20){
+        // 背景抓取中，持續輪詢（最多 ~60 秒）
+        const delay = attempt < 5 ? 3000 : 5000;
+        setTimeout(()=>pollStationAPI(apiId, name, line, attempt+1), delay);
         return;
       }
       renderAPIData(data, name, line);
     })
     .catch(()=>{
-      // API 不可用時靜默降級（用本地 DB 資料）
+      // API 不可用時靜默降級
     });
 }
 
 function loadStationAPI(apiId, name, line){
-  fetch(`/api/station/${apiId}`)
-    .then(r=>r.json())
-    .then(data=>renderAPIData(data, name, line))
-    .catch(()=>{});
+  pollStationAPI(apiId, name, line, 0);
 }
 
 function renderAPIData(data, name, line){
