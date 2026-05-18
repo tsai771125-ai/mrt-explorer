@@ -106,6 +106,34 @@ async def refresh_station(station_id: str, background_tasks: BackgroundTasks):
     background_tasks.add_task(fetch_and_cache, sid)
     return {"message": f"{sid} 快取已清除，正在重新抓取"}
 
+@app.get("/api/diagnose")
+async def diagnose():
+    """診斷 Gemini API 連線狀態"""
+    import httpx, os
+    api_key = os.environ.get("GEMINI_API_KEY", "")
+    result = {"api_key_set": bool(api_key), "api_key_prefix": api_key[:8]+"..." if api_key else ""}
+
+    if not api_key:
+        return result
+
+    # 直接 REST 測試（繞過 SDK）
+    models_to_test = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-flash-001"]
+    for model in models_to_test:
+        try:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+            r = httpx.post(
+                url,
+                params={"key": api_key},
+                json={"contents": [{"parts": [{"text": "Say OK"}]}]},
+                timeout=15,
+            )
+            result[model] = {"status": r.status_code, "ok": r.status_code == 200,
+                             "snippet": r.text[:100]}
+        except Exception as e:
+            result[model] = {"error": str(e)[:100]}
+
+    return result
+
 @app.get("/api/batch-status")
 async def batch_status():
     total = len(STATION_NAMES)
