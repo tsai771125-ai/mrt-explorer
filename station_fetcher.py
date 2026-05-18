@@ -54,11 +54,9 @@ def fetch_station_data(station_id: str, station_name: str) -> dict:
     # ── 1. Gemini 生成（自動試多個模型名稱）──────────
     # 不同 API key tier / 地區可用的模型不同，依序嘗試
     MODELS = [
-        "gemini-2.0-flash",
-        "gemini-2.0-flash-001",
-        "gemini-1.5-flash",
-        "gemini-1.5-flash-001",
-        "gemini-1.5-flash-latest",
+        "gemini-2.5-flash",       # 主力：新版，支援此 API key
+        "gemini-flash-latest",    # 備用：自動最新版
+        "gemini-2.5-flash-lite",  # 備用：輕量版
     ]
     client = genai.Client(api_key=api_key)
     prompt = PROMPT_TEMPLATE.format(name=station_name)
