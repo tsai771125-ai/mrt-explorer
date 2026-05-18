@@ -38,6 +38,14 @@ header{background:#1C1C1C;height:46px;padding:0 18px;display:flex;align-items:ce
 .lb-stn{background:#0e1e2e;border:1px solid rgba(0,191,255,.4);color:#7dd6f0;
   border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;flex-shrink:0}
 .lb-stn:hover{background:#1a3a55;color:#fff}
+/* 站點照片 */
+#p-photo{width:100%;height:160px;object-fit:cover;display:none;flex-shrink:0}
+#p-photo-credit{font-size:9px;color:#bbb;padding:2px 8px;background:#f8f8f8;flex-shrink:0;display:none}
+/* AI 載入中動畫 */
+.ai-loading{display:flex;align-items:center;gap:8px;padding:14px 18px;color:#aaa;font-size:12px}
+.ai-loading::before{content:'';width:14px;height:14px;border:2px solid #eee;border-top-color:#C27A3A;
+  border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
 /* 右側資訊面板 */
 #panel{position:fixed;top:46px;right:-375px;width:365px;height:calc(100vh - 46px);
   background:#fff;border-left:1px solid #ddd;display:flex;flex-direction:column;
@@ -224,6 +232,9 @@ header{background:#1C1C1C;height:46px;padding:0 18px;display:flex;align-items:ce
     <div style="font-size:11px;color:#ddd;margin-top:4px">檸檬列車帶你去，告訴你那站有什麼！</div>
   </div>
   <div id="pDet" style="display:none;flex-direction:column;height:100%">
+    <!-- 站點照片 -->
+    <img id="p-photo" alt="站點照片"/>
+    <div id="p-photo-credit"></div>
     <div class="p-head">
       <button class="cls" onclick="closeP()">✕</button>
       <div class="badge" id="pBadge"></div>
@@ -236,7 +247,7 @@ header{background:#1C1C1C;height:46px;padding:0 18px;display:flex;align-items:ce
         <div class="st">站點介紹</div>
         <div class="intro" id="pIntro"></div>
       </div>
-      <div class="sec">
+      <div class="sec" id="sec-hl">
         <div class="st">附近亮點</div>
         <div id="pHL"></div>
       </div>
@@ -546,6 +557,8 @@ function openP(id){
   const d=DB[id]||DB[ALIAS[id]];
   const line=(d?.l)||id.replace(/\d.*/,'');
   const name=d?.n||SN[id]||SN[ALIAS[id]]||id;
+
+  // 基本資訊立即顯示
   document.getElementById('ph').style.display='none';
   document.getElementById('pDet').style.display='flex';
   document.getElementById('pBadge').textContent=LN[line]||line;
@@ -553,12 +566,76 @@ function openP(id){
   document.getElementById('pName').textContent=name;
   document.getElementById('pEn').textContent=d?.e||'';
   document.getElementById('pTags').innerHTML=(d?.t||[]).map(t=>`<span class="tag">${t}</span>`).join('');
-  document.getElementById('pIntro').textContent=d?.i||FB[line]||'站點資料整理中…';
-  document.getElementById('pHL').innerHTML=(d?.h||[]).length
-    ?d.h.map(h=>`<div class="hl"><div class="hi">${h.i}</div><div><div class="hn">${h.n}</div><div class="hd">${h.d}</div></div></div>`).join('')
-    :'<p style="font-size:12px;color:#ccc">AI 將為此站整理熱門景點…</p>';
   document.getElementById('aiIn').placeholder='幫我找'+name+'附近的…';
   document.getElementById('panel').classList.add('open');
+
+  // 先顯示本地 DB 資料
+  const hasLocalData = d?.i || d?.h?.length;
+  document.getElementById('pIntro').textContent = d?.i||FB[line]||'載入中…';
+  document.getElementById('pHL').innerHTML = (d?.h||[]).length
+    ? d.h.map(h=>`<div class="hl"><div class="hi">${h.i}</div><div><div class="hn">${h.n}</div><div class="hd">${h.d}</div></div></div>`).join('')
+    : '<div class="ai-loading">AI 正在搜尋景點資料…</div>';
+
+  // 隱藏照片區
+  document.getElementById('p-photo').style.display='none';
+  document.getElementById('p-photo-credit').style.display='none';
+
+  // 呼叫後端 API 取得 AI + 照片資料
+  const apiId = id.toUpperCase();
+  fetch(`/api/station/${apiId}`)
+    .then(r => r.json())
+    .then(data => {
+      if(data.status === 'fetching'){
+        // 背景抓取中，2 秒後重試一次
+        setTimeout(()=>loadStationAPI(apiId, name, line), 3000);
+        return;
+      }
+      renderAPIData(data, name, line);
+    })
+    .catch(()=>{
+      // API 不可用時靜默降級（用本地 DB 資料）
+    });
+}
+
+function loadStationAPI(apiId, name, line){
+  fetch(`/api/station/${apiId}`)
+    .then(r=>r.json())
+    .then(data=>renderAPIData(data, name, line))
+    .catch(()=>{});
+}
+
+function renderAPIData(data, name, line){
+  // 照片
+  if(data.photo_url){
+    const img=document.getElementById('p-photo');
+    const cred=document.getElementById('p-photo-credit');
+    img.src=data.photo_url;
+    img.style.display='block';
+    img.onerror=()=>{img.style.display='none';cred.style.display='none';};
+    if(data.photo_credit){
+      cred.textContent='📷 '+data.photo_credit;
+      cred.style.display='block';
+    }
+  }
+  // 介紹
+  if(data.intro) document.getElementById('pIntro').textContent=data.intro;
+  // 標籤
+  if(data.tags?.length){
+    const existing=document.getElementById('pTags').innerHTML;
+    const aiTags=data.tags.map(t=>`<span class="tag" style="background:#EEF6EE;color:#2E7D32">${t}</span>`).join('');
+    document.getElementById('pTags').innerHTML=existing+aiTags;
+  }
+  // 亮點
+  if(data.highlights?.length){
+    document.getElementById('pHL').innerHTML=data.highlights.map(h=>`
+      <div class="hl" style="flex-direction:column;gap:0;padding:10px 0">
+        ${h.photo_url?`<img src="${h.photo_url}" style="width:100%;height:110px;object-fit:cover;border-radius:8px;margin-bottom:7px" onerror="this.style.display='none'">`:''}
+        <div style="display:flex;gap:9px;align-items:flex-start">
+          <div class="hi">${h.emoji||'📍'}</div>
+          <div><div class="hn">${h.name}</div><div class="hd">${h.desc}</div></div>
+        </div>
+      </div>`).join('');
+  }
 }
 
 function closeP(){
@@ -571,7 +648,9 @@ function qa(q){document.getElementById('aiIn').value=document.getElementById('pN
 function sendAI(){
   const v=document.getElementById('aiIn').value.trim();
   if(!v)return;
-  alert('🤖 Gemini AI 搜尋：「'+v+'」\n\n（串接 Gemini Search Grounding API 後即時顯示結果）');
+  const name=document.getElementById('pName').textContent;
+  const q=encodeURIComponent(v);
+  window.open(`https://www.google.com/search?q=${q}+${encodeURIComponent(name)}+台北+捷運`,'_blank');
 }
 
 // ── 動態產生站點熱區 ──
