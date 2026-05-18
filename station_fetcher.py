@@ -8,8 +8,6 @@ import google.generativeai as genai
 
 logger = logging.getLogger(__name__)
 
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-
 PROMPT_TEMPLATE = """你是一個熱愛台灣旅遊的達人，幫一個爸爸帶兒子探索台北捷運每一站的特色。
 
 請用繁體中文，搜尋並整理「台北捷運{name}站」附近（步行10分鐘內）最有趣的景點和特色。
@@ -49,13 +47,15 @@ def fetch_station_data(station_id: str, station_name: str) -> dict:
         "photo_credit": None,
     }
 
-    if not GEMINI_API_KEY:
+    # 每次呼叫時即時讀取（確保 Zeabur 重啟後立即生效）
+    api_key = os.environ.get("GEMINI_API_KEY", "")
+    if not api_key:
         logger.warning("No GEMINI_API_KEY, returning stub data")
-        return {**base, "intro": f"{station_name}站資料尚未載入（未設定 GEMINI_API_KEY）"}
+        return {**base, "intro": f"{station_name}站資料尚未載入（請設定 GEMINI_API_KEY）"}
 
     # ── 1. Gemini Search Grounding ────────────────
     try:
-        genai.configure(api_key=GEMINI_API_KEY)
+        genai.configure(api_key=api_key)
         model = genai.GenerativeModel(
             model_name="gemini-2.0-flash",
             tools=[{"google_search": {}}],
