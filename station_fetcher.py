@@ -126,6 +126,11 @@ def fetch_station_data(station_id: str, station_name: str) -> dict:
     return base
 
 
+WIKI_HEADERS = {
+    "User-Agent": "MRTExplorer/1.0 (https://mrt-explorer.zeabur.app; tsai771125@gmail.com)"
+}
+
+
 def get_wikipedia_photo(query: str) -> tuple:
     """用 Wikipedia API 取得免費代表照片"""
     try:
@@ -133,6 +138,7 @@ def get_wikipedia_photo(query: str) -> tuple:
             "https://en.wikipedia.org/w/api.php",
             params={"action": "query", "list": "search",
                     "srsearch": query, "srlimit": 1, "format": "json"},
+            headers=WIKI_HEADERS,
             timeout=8,
         )
         results = r.json().get("query", {}).get("search", [])
@@ -144,6 +150,7 @@ def get_wikipedia_photo(query: str) -> tuple:
             "https://en.wikipedia.org/w/api.php",
             params={"action": "query", "titles": title,
                     "prop": "pageimages", "pithumbsize": 800, "format": "json"},
+            headers=WIKI_HEADERS,
             timeout=8,
         )
         for page in r2.json().get("query", {}).get("pages", {}).values():
