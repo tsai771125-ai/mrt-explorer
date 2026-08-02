@@ -93,12 +93,12 @@ header{background:#1C1C1C;height:46px;padding:0 18px;display:flex;align-items:ce
 
 <div class="map-wrap">
   <div id="map-container">
-    <!-- 官方標準路線圖 (2023, 台北大眾捷運公司) -->
+    <!-- 標準路線圖 (2026/6/28 版，含三鶯線通車後路網) -->
     <img id="map-img"
-      src="https://assets.piliapp.com/s3pxy/mrt_taiwan/taipei/20230214_zh.png"
+      src="https://assets.piliapp.com/s3pxy/mrt_taiwan/taipei/20260628_zh.png"
       alt="台北捷運路線圖" draggable="false"/>
 
-    <!-- 新路線疊加層：淡海輕軌 V、安坑輕軌 K、機場捷運 A -->
+    <!-- 新路線疊加層：淡海輕軌 V、安坑輕軌 K、機場捷運 A（無精確站點資料，維持示意）-->
     <svg id="new-routes" style="position:absolute;top:0;left:0;width:900px;height:900px;pointer-events:none;z-index:3;overflow:visible">
       <!-- 安坑輕軌 K 線（草綠色虛線）十四張→雙城 -->
       <polyline points="388,744 375,790 352,826 330,855 308,875 286,885 264,888 244,882 230,868"
@@ -126,16 +126,19 @@ header{background:#1C1C1C;height:46px;padding:0 18px;display:flex;align-items:ce
       <circle cx="76" cy="68" r="5" fill="#9C27B0" stroke="white" stroke-width="2"/>
       <circle cx="55" cy="48" r="4.5" fill="#9C27B0" stroke="white" stroke-width="1.8"/>
 
-      <!-- 機場捷運 A 線（天藍色虛線）台北→三重→新北產業→機場方向 -->
-      <polyline points="293,488 218,468 160,450 124,393 95,335 60,270"
+      <!-- 機場捷運 A 線（天藍色虛線）台北→三重→新北產業→…→機場第一/二航廈（座標取自官方站點實際位置）-->
+      <polyline points="293,488 218,468 124,388 76,429 76,468 45,503 14,467 14,405 14,343 14,281 14,219 14,157 14,130"
         fill="none" stroke="#0097A7" stroke-width="5.5" stroke-dasharray="9,5" stroke-linecap="round" stroke-linejoin="round" opacity=".9"/>
       <circle cx="293" cy="488" r="5" fill="#0097A7" stroke="white" stroke-width="2"/>
-      <circle cx="218" cy="468" r="4.5" fill="#0097A7" stroke="white" stroke-width="1.8"/>
-      <circle cx="160" cy="450" r="4.5" fill="#0097A7" stroke="white" stroke-width="1.8"/>
-      <circle cx="124" cy="393" r="4.5" fill="#0097A7" stroke="white" stroke-width="1.8"/>
+      <circle cx="124" cy="388" r="4.5" fill="#0097A7" stroke="white" stroke-width="1.8"/>
+      <circle cx="76" cy="429" r="4.5" fill="#0097A7" stroke="white" stroke-width="1.8"/>
+      <circle cx="45" cy="503" r="4.5" fill="#0097A7" stroke="white" stroke-width="1.8"/>
+      <circle cx="14" cy="343" r="4.5" fill="#0097A7" stroke="white" stroke-width="1.8"/>
+      <circle cx="14" cy="157" r="5" fill="#0097A7" stroke="white" stroke-width="2"/>
+      <circle cx="14" cy="130" r="4.5" fill="#0097A7" stroke="white" stroke-width="1.8"/>
       <!-- 標籤 -->
-      <text x="128" y="388" font-size="8.5" font-family="Noto Sans TC,sans-serif" fill="#004D60" font-weight="700">新北產業</text>
-      <text x="60" y="264" font-size="8" font-family="Noto Sans TC,sans-serif" fill="#004D60" font-weight="700">✈ 機場方向</text>
+      <text x="128" y="383" font-size="8.5" font-family="Noto Sans TC,sans-serif" fill="#004D60" font-weight="700">新北產業</text>
+      <text x="19" y="161" font-size="8" font-family="Noto Sans TC,sans-serif" fill="#004D60" font-weight="700">機場第一航廈</text>
     </svg>
     <!-- 🍋 檸檬列車 SVG：5 節獨立車廂（前車/連接器/中車/連接器/後車）
          各自沿移動軌跡取樣定位＋轉向，轉彎時逐節貼合路徑，不再整組剛體切角。
@@ -273,7 +276,7 @@ header{background:#1C1C1C;height:46px;padding:0 18px;display:flex;align-items:ce
 </div>
 
 <script>
-// ── 座標系統：piliapp 官方地圖 900×900 [left, top] ──
+// ── 座標系統：piliapp 官方地圖 900×900 [left, top]（2026/6/28 版校正）──
 const P={
   // 板南線 BL（藍）
   BL01:[122,851],BL02:[122,809],BL03:[122,767],BL04:[122,725],BL05:[122,683],
@@ -311,14 +314,17 @@ const P={
   // 環狀線 Y（黃）
   Y08:[388,744],Y09:[359,744],Y10:[330,744],Y11:[296,732],Y12:[262,722],
   Y13:[233,693],Y14:[204,664],Y15:[175,635],Y16:[148,599],
-  Y17:[125,541],Y18:[124,484],Y19:[124,427],Y20:[124,379],
+  Y17:[125,541],Y18:[124,484],Y19:[124,448],Y20:[124,388],
   // 安坑輕軌 K（草綠）
   K01:[230,868],K02:[244,882],K03:[264,888],K04:[286,885],
   K05:[308,875],K06:[330,855],K07:[352,826],K08:[375,790],K09:[388,744],
   // 淡海輕軌 V（紫）
   V01:[76,68],V02:[55,48],
-  // 機場捷運 A（天藍）
-  A1:[293,488],A2:[218,468],A3:[160,450],A12:[124,393]
+  // 機場捷運 A（天藍，A12 已用 2026 地圖實際站點座標校正）
+  A1:[293,488],A2:[218,468],A3:[124,388],A12:[14,157],
+  // 三鶯線 LB（青，2026/6/30 通車，座標取自 2026 地圖實際站點位置；LB01＝頂埔，與 BL01 共站）
+  LB02:[98,874],LB03:[66,874],LB04:[34,874],LB05:[11,847],LB06:[11,817],
+  LB07:[11,787],LB08:[11,757],LB09:[11,727],LB10:[11,697],LB11:[11,667],LB12:[11,637]
 };
 
 // 線路顏色與名稱
@@ -413,7 +419,7 @@ const SN={
   Y13:'橋和',Y14:'中原',Y15:'板新',Y16:'板橋',Y17:'新埔',
   Y18:'幸福',Y19:'幸福',Y20:'新北產業園區',
   LB02:'媽祖田',LB03:'挖子',LB04:'橫溪',LB05:'龍埔',LB06:'三峽',
-  LB07:'臺北大學',LB08:'鶯歌車站',LB09:'鶯歌老街',LB10:'國華',LB12:'鶯桃福德',
+  LB07:'臺北大學',LB08:'鶯歌車站',LB09:'鶯歌老街',LB10:'國華',LB11:'永吉公園',LB12:'鶯桃福德',
   K01:'雙城',K02:'玫瑰中國城',K03:'台北小城',K04:'耕莘安康院區',
   K05:'景文科大',K06:'安康',K07:'陽光運動公園',K08:'新和國小',K09:'十四張',
   V01:'紅樹林',V02:'竿蓁林',
@@ -454,7 +460,8 @@ const LINES={
   Y:['Y20','Y19','Y18','Y17','Y16','Y15','Y14','Y13','Y12','Y11','Y10','Y09','Y08'],
   K:['K01','K02','K03','K04','K05','K06','K07','K08','K09'],
   V:['V01','V02'],
-  A:['A1','A2','A3','A12']
+  A:['A1','A2','A3','A12'],
+  LB:['BL01','LB02','LB03','LB04','LB05','LB06','LB07','LB08','LB09','LB10','LB11','LB12']
 };
 
 // BFS 最短路徑
