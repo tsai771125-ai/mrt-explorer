@@ -27,10 +27,11 @@ header{background:#1C1C1C;height:46px;padding:0 18px;display:flex;align-items:ce
   0%{box-shadow:0 0 0 0 rgba(255,200,0,.75)}
   100%{box-shadow:0 0 0 20px rgba(255,200,0,0)}
 }
-/* SVG 列車：83×18px，transform-origin = 車身中央 (41px 9px) */
-#train{position:absolute;left:0;top:0;overflow:visible;
-  pointer-events:none;z-index:10;transform-origin:41px 9px;
+/* SVG 列車：分節車廂各自沿軌跡取樣定位，覆蓋整張地圖座標系 */
+#train{position:absolute;left:0;top:0;width:900px;height:900px;overflow:visible;
+  pointer-events:none;z-index:10;opacity:0;transition:opacity .4s ease;
   filter:drop-shadow(0 2px 5px rgba(0,0,0,.6))}
+#train.ready{opacity:1}
 /* 三鶯線 2026 banner */
 #lb-banner{background:#182535;border-top:1px solid #253a52;padding:3px 14px;
   flex-shrink:0;display:flex;align-items:center;gap:6px;overflow-x:auto;white-space:nowrap}
@@ -136,10 +137,10 @@ header{background:#1C1C1C;height:46px;padding:0 18px;display:flex;align-items:ce
       <text x="128" y="388" font-size="8.5" font-family="Noto Sans TC,sans-serif" fill="#004D60" font-weight="700">新北產業</text>
       <text x="60" y="264" font-size="8" font-family="Noto Sans TC,sans-serif" fill="#004D60" font-weight="700">✈ 機場方向</text>
     </svg>
-    <!-- 🍋 檸檬列車 SVG
-         viewBox: 車身 x=-83(尾)~0(鼻頭)，y=-9~9
-         定位中心 = 車身中央 (約 x=-42)，對齊站點座標 -->
-    <svg id="train" viewBox="-83 -9 83 18" width="83" height="18">
+    <!-- 🍋 檸檬列車 SVG：5 節獨立車廂（前車/連接器/中車/連接器/後車）
+         各自沿移動軌跡取樣定位＋轉向，轉彎時逐節貼合路徑，不再整組剛體切角。
+         每節車廂的本地座標已「以自身中心為原點」重新定義。 -->
+    <svg id="train">
       <defs>
         <linearGradient id="lg" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stop-color="#FFE800"/>
@@ -151,54 +152,56 @@ header{background:#1C1C1C;height:46px;padding:0 18px;display:flex;align-items:ce
         </linearGradient>
         <!-- 前車剪裁路徑 -->
         <clipPath id="cp1">
-          <path d="M -5,-8 L -30,-8 L -30,8 L -5,8 Q 0,5 0,0 Q 0,-5 -5,-8 Z"/>
+          <path d="M 10,-8 L -15,-8 L -15,8 L 10,8 Q 15,5 15,0 Q 15,-5 10,-8 Z"/>
         </clipPath>
       </defs>
 
-      <!-- ── 車廂 1：前車（檸檬尖頭輪廓）── -->
-      <path d="M -5,-8 L -30,-8 L -30,8 L -5,8 Q 0,5 0,0 Q 0,-5 -5,-8 Z"
-            fill="url(#lg)" stroke="#B08000" stroke-width="1.3"/>
-      <!-- 頂部綠色帶（模擬檸檬皮）-->
-      <rect x="-30" y="-8" width="30" height="4.5" fill="#6DB830" opacity=".55" clip-path="url(#cp1)"/>
-      <!-- 車窗 -->
-      <rect x="-27" y="-5" width="8" height="6" rx="1.5" fill="#1255A0" opacity=".9"/>
-      <rect x="-17" y="-5" width="8" height="6" rx="1.5" fill="#1255A0" opacity=".9"/>
-
-      <!-- ── 🍋 檸檬切面車頭燈（主特色）── -->
-      <circle cx="0" cy="0" r="6.5" fill="#FFFDE0" stroke="#B08000" stroke-width="1.2"/>
-      <!-- 六瓣放射線（柑橘切面） -->
-      <line x1="0" y1="-6.5" x2="0" y2="6.5"   stroke="#CCA000" stroke-width="0.65"/>
-      <line x1="0" y1="-6.5" x2="0" y2="6.5"   stroke="#CCA000" stroke-width="0.65" transform="rotate(60,0,0)"/>
-      <line x1="0" y1="-6.5" x2="0" y2="6.5"   stroke="#CCA000" stroke-width="0.65" transform="rotate(-60,0,0)"/>
-      <!-- 中心核 -->
-      <circle cx="0" cy="0" r="2.2" fill="#FFD700" stroke="#C49000" stroke-width="0.6"/>
+      <!-- ── 車廂 1：前車（檸檬尖頭輪廓，含車頭燈）── -->
+      <g id="t-front">
+        <path d="M 10,-8 L -15,-8 L -15,8 L 10,8 Q 15,5 15,0 Q 15,-5 10,-8 Z"
+              fill="url(#lg)" stroke="#B08000" stroke-width="1.3"/>
+        <!-- 頂部綠色帶（模擬檸檬皮）-->
+        <rect x="-15" y="-8" width="30" height="4.5" fill="#6DB830" opacity=".55" clip-path="url(#cp1)"/>
+        <!-- 車窗 -->
+        <rect x="-12" y="-5" width="8" height="6" rx="1.5" fill="#1255A0" opacity=".9"/>
+        <rect x="-2" y="-5" width="8" height="6" rx="1.5" fill="#1255A0" opacity=".9"/>
+        <!-- 🍋 檸檬切面車頭燈（主特色） -->
+        <circle cx="15" cy="0" r="6.5" fill="#FFFDE0" stroke="#B08000" stroke-width="1.2"/>
+        <line x1="15" y1="-6.5" x2="15" y2="6.5" stroke="#CCA000" stroke-width="0.65"/>
+        <line x1="15" y1="-6.5" x2="15" y2="6.5" stroke="#CCA000" stroke-width="0.65" transform="rotate(60,15,0)"/>
+        <line x1="15" y1="-6.5" x2="15" y2="6.5" stroke="#CCA000" stroke-width="0.65" transform="rotate(-60,15,0)"/>
+        <circle cx="15" cy="0" r="2.2" fill="#FFD700" stroke="#C49000" stroke-width="0.6"/>
+      </g>
 
       <!-- 連接器 1 -->
-      <rect x="-34" y="-2.2" width="4" height="4.4" rx="1.2" fill="#B0B0B0"/>
+      <g id="t-conn1"><rect x="-2" y="-2.2" width="4" height="4.4" rx="1.2" fill="#B0B0B0"/></g>
 
       <!-- ── 車廂 2：中車 ── -->
-      <rect x="-53" y="-8" width="19" height="16" rx="2.5"
-            fill="url(#lg)" stroke="#B08000" stroke-width="1.3"/>
-      <rect x="-53" y="-8" width="19" height="4.5" rx="0" fill="#6DB830" opacity=".5"/>
-      <rect x="-51" y="-5" width="8" height="6" rx="1.5" fill="#1255A0" opacity=".9"/>
-      <rect x="-41" y="-5" width="8" height="6" rx="1.5" fill="#1255A0" opacity=".9"/>
+      <g id="t-mid">
+        <rect x="-9.5" y="-8" width="19" height="16" rx="2.5"
+              fill="url(#lg)" stroke="#B08000" stroke-width="1.3"/>
+        <rect x="-9.5" y="-8" width="19" height="4.5" rx="0" fill="#6DB830" opacity=".5"/>
+        <rect x="-7.5" y="-5" width="8" height="6" rx="1.5" fill="#1255A0" opacity=".9"/>
+        <rect x="2.5" y="-5" width="8" height="6" rx="1.5" fill="#1255A0" opacity=".9"/>
+      </g>
 
       <!-- 連接器 2 -->
-      <rect x="-57" y="-2.2" width="4" height="4.4" rx="1.2" fill="#B0B0B0"/>
+      <g id="t-conn2"><rect x="-2" y="-2.2" width="4" height="4.4" rx="1.2" fill="#B0B0B0"/></g>
 
       <!-- ── 車廂 3：後車（圓頭 = 檸檬蒂端）── -->
-      <path d="M -61,-8 L -76,-8 Q -83,-8 -83,0 Q -83,8 -76,8 L -61,8 Z"
-            fill="url(#lgr)" stroke="#A07000" stroke-width="1.3"/>
-      <rect x="-78" y="-8" width="17" height="4.5" rx="0" fill="#6DB830" opacity=".4"/>
-      <rect x="-73" y="-5" width="8" height="6" rx="1.5" fill="#1255A0" opacity=".9"/>
-      <rect x="-63" y="-5" width="8" height="6" rx="1.5" fill="#1255A0" opacity=".9"/>
-
-      <!-- ── 🍋 蒂頭（尾端，檸檬最有特色的部分）── -->
-      <circle cx="-83" cy="0" r="3" fill="#FFE000" stroke="#8AB020" stroke-width="1.1"/>
-      <path d="M -83,-3 C -87,-6 -84,-10 -79,-7" stroke="#4CAF50" stroke-width="2.2"
-            fill="none" stroke-linecap="round"/>
-      <path d="M -83,3  C -87,6  -84,10 -79,7"  stroke="#66BB40" stroke-width="1.6"
-            fill="none" stroke-linecap="round"/>
+      <g id="t-rear">
+        <path d="M 11,-8 L -4,-8 Q -11,-8 -11,0 Q -11,8 -4,8 L 11,8 Z"
+              fill="url(#lgr)" stroke="#A07000" stroke-width="1.3"/>
+        <rect x="-6" y="-8" width="17" height="4.5" rx="0" fill="#6DB830" opacity=".4"/>
+        <rect x="-1" y="-5" width="8" height="6" rx="1.5" fill="#1255A0" opacity=".9"/>
+        <rect x="9" y="-5" width="8" height="6" rx="1.5" fill="#1255A0" opacity=".9"/>
+        <!-- 🍋 蒂頭（尾端，檸檬最有特色的部分） -->
+        <circle cx="-11" cy="0" r="3" fill="#FFE000" stroke="#8AB020" stroke-width="1.1"/>
+        <path d="M -11,-3 C -15,-6 -12,-10 -7,-7" stroke="#4CAF50" stroke-width="2.2"
+              fill="none" stroke-linecap="round"/>
+        <path d="M -11,3  C -15,6  -12,10 -7,7"  stroke="#66BB40" stroke-width="1.6"
+              fill="none" stroke-linecap="round"/>
+      </g>
     </svg>
     <!-- 站點熱區由 JS 動態產生 -->
   </div>
@@ -490,17 +493,52 @@ function bfs(f,t){
 }
 
 // ── 🍋 列車狀態 ──
-let tx=293,ty=488,ta=0;
+let tx=293,ty=488;
 let wps=[],wi=0,pending=null;
 let isIdle=true,idleTimer=null;
 const TOUR=['R28','R22A','R16','BL12','BL07','BL23','BR01','G01','G19','O54','O21','R02','Y16','BR20'];
 let ti=0;
 const SPD=1.5;
 
+// 每節車廂/連接器與車頭（trail[0]）的弧長距離（沿路徑，非直線距離）
+const CARS=[['t-front',15],['t-conn1',32],['t-mid',43.5],['t-conn2',55],['t-rear',72]];
+const TRAIL_MAX=100;
+// 軌跡緩衝：往車頭反方向鋪好初始點，讓列車在真正開始移動前就有完整車身可畫
+let trail=[];
+let trailSeeded=false; // 真正第一段行進方向確定後才鋪一次，避免起步瞬間方向跳轉
+function seedTrail(hx,hy,angleDeg){
+  const rad=angleDeg*Math.PI/180, dx=Math.cos(rad), dy=Math.sin(rad);
+  const steps=Math.ceil(85/SPD)+2;
+  trail=[];
+  for(let i=0;i<=steps;i++)trail.push({x:hx-dx*i*SPD,y:hy-dy*i*SPD});
+}
+seedTrail(tx,ty,0);
+
+// 依（可為小數的）弧長距離內插軌跡座標
+function trailAt(idx){
+  const c=Math.max(0,Math.min(idx,trail.length-1));
+  const i0=Math.floor(c), i1=Math.min(i0+1,trail.length-1), f=c-i0;
+  const p0=trail[i0],p1=trail[i1];
+  return{x:p0.x+(p1.x-p0.x)*f, y:p0.y+(p1.y-p0.y)*f};
+}
+// 取軌跡上距車頭 distBack 弧長處的座標與行進方向角度
+// 切線用較寬的前後窗口（TAN_WIN）取樣，讓轉彎時的角度變化分攤到多個 tick，避免瞬間跳轉
+const TAN_WIN=6;
+function sampleTrail(distBack){
+  const{x,y}=trailAt(distBack/SPD);
+  const ahead=trailAt(Math.max(distBack-TAN_WIN,0)/SPD);   // 較靠近車頭（前方）
+  const behind=trailAt((distBack+TAN_WIN)/SPD);              // 較靠近車尾（後方）
+  // 行進方向 = 由後往前（behind → ahead）
+  const angle=Math.atan2(ahead.y-behind.y,ahead.x-behind.x)*180/Math.PI;
+  return{x,y,angle};
+}
+
 function posC(){
-  // 車身中央 (元素內 41px,9px) 對齊站點座標 (tx,ty)
-  document.getElementById('train').style.transform=
-    `translate(${tx-41}px,${ty-9}px) rotate(${ta}deg)`;
+  CARS.forEach(([gid,dist])=>{
+    const{x,y,angle}=sampleTrail(dist);
+    document.getElementById(gid).setAttribute('transform',
+      `translate(${x.toFixed(1)},${y.toFixed(1)}) rotate(${angle.toFixed(1)})`);
+  });
 }
 
 function tick(){
@@ -512,7 +550,16 @@ function tick(){
   const[wx,wy]=wps[wi];
   const dx=wx-tx,dy=wy-ty,d=Math.hypot(dx,dy);
   if(d<SPD+0.3){tx=wx;ty=wy;wi++;}
-  else{tx+=dx/d*SPD;ty+=dy/d*SPD;ta=Math.atan2(dy,dx)*180/Math.PI;}
+  else{
+    if(!trailSeeded){
+      seedTrail(tx,ty,Math.atan2(dy,dx)*180/Math.PI);
+      trailSeeded=true;
+      document.getElementById('train').classList.add('ready');
+    }
+    tx+=dx/d*SPD;ty+=dy/d*SPD;
+  }
+  trail.unshift({x:tx,y:ty});
+  if(trail.length>TRAIL_MAX)trail.length=TRAIL_MAX;
   posC();
 }
 
@@ -670,7 +717,6 @@ function sendAI(){
 // ── 啟動動畫 ──
 posC();
 (function L(){tick();requestAnimationFrame(L);})();
-setInterval(tick,80);
 setTimeout(nextIdle,1500);
 </script>
 </body>
