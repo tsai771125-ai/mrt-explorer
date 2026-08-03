@@ -513,6 +513,7 @@ const TRAIL_MAX=100;
 // 軌跡緩衝：往車頭反方向鋪好初始點，讓列車在真正開始移動前就有完整車身可畫
 let trail=[];
 let trailSeeded=false; // 真正第一段行進方向確定後才鋪一次，避免起步瞬間方向跳轉
+let lastHeading=0; // 最近一段行進方向，用來偵測使用者中途改點造成的急轉/迴轉
 function seedTrail(hx,hy,angleDeg){
   const rad=angleDeg*Math.PI/180, dx=Math.cos(rad), dy=Math.sin(rad);
   const steps=Math.ceil(85/SPD)+2;
@@ -558,11 +559,20 @@ function tick(){
   const dx=wx-tx,dy=wy-ty,d=Math.hypot(dx,dy);
   if(d<SPD+0.3){tx=wx;ty=wy;wi++;}
   else{
+    const newAngle=Math.atan2(dy,dx)*180/Math.PI;
+    let delta=Math.abs(newAngle-lastHeading)%360;
+    if(delta>180)delta=360-delta;
     if(!trailSeeded){
-      seedTrail(tx,ty,Math.atan2(dy,dx)*180/Math.PI);
+      // 第一次真正移動：鋪好初始軌跡，並淡入避免起步瞬間方向跳轉被看到
+      seedTrail(tx,ty,newAngle);
       trailSeeded=true;
       document.getElementById('train').classList.add('ready');
+    }else if(delta>100){
+      // 使用者中途改點方向差很大的站，屬於急轉/迴轉：直接整組重新鋪軌跡同步轉向，
+      // 避免 5 節車廂各自依原本軌跡漸進轉彎、在轉換過程中彼此角度不同步而散開
+      seedTrail(tx,ty,newAngle);
     }
+    lastHeading=newAngle;
     tx+=dx/d*SPD;ty+=dy/d*SPD;
   }
   trail.unshift({x:tx,y:ty});
